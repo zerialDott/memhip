@@ -21,38 +21,107 @@ function shuffle(array) {
 
 shuffle(cards);
 
-const container = document.querySelector('ul');
+const timerElement = document.querySelector('#pTime');
+const btn = document.querySelector('#btn');
 let visibleImages = []; // Array para rastrear las imágenes visibles
 let selectedImages = []; // Array para comparar imágenes
 let matchedImages = []; // Array para rastrear las imágenes que ya se emparejaron
 let isProcessing = false; // Bandera para evitar clics durante el proceso
+let seg = 0;
+let mseg = 0;
+let timer;
+let timerStarted = false; // Bandera para saber si el temporizador ya ha comenzado
 
-// Crear las cartas y añadirlas al contenedor
-cards.forEach(({ name, url }) => {
-    const li = document.createElement('li');
-    const img = document.createElement('img');
-    img.src = url;
-    img.setAttribute('data-name', name);
-    img.style.width = '100px';
-    img.style.height = '100px';
-    img.style.display = 'none'; // Ocultar por defecto
-    li.appendChild(img);
-    container.appendChild(li);
-});
-
-// Manejar el clic en las cartas
-container.addEventListener('click', (e) => {
-    const target = e.target;
-
-    if (target.tagName === 'LI') {
-        const img = target.querySelector('img');
-        toggleImageDisplay(img);
-        e.stopPropagation(); // Evitar que el clic se propague al window
+function updateTimer() {
+    mseg++;
+    if (mseg >= 100) {
+        mseg = 0;
+        seg++;
     }
+    const min = Math.floor(seg / 60); // Calcular minutos
+    const sec = seg % 60; // Calcular segundos restantes
+    timerElement.textContent = `Tiempo: ${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}:${String(mseg).padStart(2, '0')}`;
+}
+
+function startTimer() {
+    timer = setInterval(updateTimer, 10); // Actualizar cada 10 milisegundos
+}
+
+function stopTimer() {
+    clearInterval(timer);
+}
+
+function checkIfAllMatched() {
+    return matchedImages.length === cards.length;
+}
+
+function updateRecord() {
+    const currentTime = `${String(Math.floor(seg / 60)).padStart(2, '0')}:${String(seg % 60).padStart(2, '0')}:${String(mseg).padStart(2, '0')}`;
+    const bestRecord = localStorage.getItem('bestRecord') || '99:99:99'; // Valor inicial si no hay récord
+    if (currentTime < bestRecord) {
+        localStorage.setItem('bestRecord', currentTime);
+        timerElement.textContent += ` - ¡Nuevo récord!`;
+    } else {
+        timerElement.textContent += ` - Mejor récord: ${bestRecord}`;
+    }
+}
+
+btn.addEventListener('click', () => {
+    renderCards();
+    // El temporizador no se inicia aquí
 });
 
-// Manejar clic en cualquier parte de la ventana
-window.addEventListener('click', hideAllImages);
+function renderCards() {
+    const main = document.querySelector('main');
+    
+    let container = document.querySelector('ul');
+    if (!container) {
+        container = document.createElement('ul');
+        container.id = 'card-container'; // Agregar ID para referencia
+        main.appendChild(container);
+    } else {
+        container.innerHTML = ''; // Limpiar el contenido actual del contenedor
+    }
+    const divSelector = document.querySelector('div')
+    if (divSelector) {
+        divSelector.remove()
+        if (btn) {
+            btn.remove()
+        }
+    }
+    // Crear las cartas y añadirlas al contenedor
+    cards.forEach(({ name, url }) => {
+        const li = document.createElement('li');
+        const img = document.createElement('img');
+        img.src = url;
+        img.setAttribute('data-name', name);
+        img.style.width = '100px';
+        img.style.height = '100px';
+        img.style.display = 'none'; // Ocultar por defecto
+        li.appendChild(img);
+        container.appendChild(li);
+    });
+
+    // Manejar el clic en las cartas
+    container.addEventListener('click', (e) => {
+        const target = e.target;
+
+        if (target.tagName === 'LI') {
+            if (!timerStarted) {
+                startTimer(); // Iniciar el temporizador cuando se hace clic en la primera carta
+                timerStarted = true;
+            }
+            const img = target.querySelector('img');
+            toggleImageDisplay(img);
+            e.stopPropagation(); // Evitar que el clic se propague al window
+            
+            if (checkIfAllMatched()) {
+                stopTimer();
+                updateRecord();
+            }
+        }
+    });
+}
 
 function toggleImageDisplay(img) {
     if (isProcessing || matchedImages.includes(img)) return;
@@ -104,3 +173,6 @@ function hideAllImages() {
     visibleImages = visibleImages.filter(img => matchedImages.includes(img)); // Mantener solo las imágenes emparejadas
     selectedImages.length = 0; // Vaciar el array selectedImages
 }
+
+// Manejar clic en cualquier parte de la ventana
+window.addEventListener('click', hideAllImages);
